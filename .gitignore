@@ -1,0 +1,21 @@
+# Project files
+data_local/
+data_remote/
+
+# .env
+.env
+
+# PyCache
+__pycache__/
+
+# mypy
+.mypy_cache/
+
+# poetry
+.venv/
+
+# ci (local runs)
+requirements-dev.txt
+
+#pyenv
+.python-version

@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Main (Uvicorn/Rocketry)",
+      "type": "python",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/main.py",
+      "justMyCode": false
+    }
+  ]
+}
