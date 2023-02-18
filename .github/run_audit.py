@@ -5,6 +5,8 @@ from ossaudit import audit, packages
 # {"Vuln ID": "Reason"}
 cve_ignores: Dict[str, str] = {
     "CVE-2022-33124": "aiohttp 3.8.1 IPV6 exception, not applicable",
+    "sonatype-2023-0973": "starlette <=0.24 Uncontrolled resource consumption, not large threat in localhost, fixed "
+    "version not compatible yet",
 }
 
 

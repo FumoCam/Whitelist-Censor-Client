@@ -1,5 +1,6 @@
-from twitchio.ext import commands
 from os import getenv
+
+from twitchio.ext import commands
 
 
 class TwitchBot(commands.Bot):

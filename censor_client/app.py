@@ -4,8 +4,8 @@ import logging
 import uvicorn
 from censor_client import controller
 from censor_client.models import RequestCensoredMessage, TempDataset
-from censor_client.websocket_utils import BackgroundWebsocketProcess
 from censor_client.twitch_utils import TwitchBot
+from censor_client.websocket_utils import BackgroundWebsocketProcess
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI
 from fastapi.encoders import jsonable_encoder
