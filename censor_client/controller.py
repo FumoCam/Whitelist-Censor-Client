@@ -1,5 +1,7 @@
 import json
 import shutil
+import time
+from math import ceil
 from os import getenv
 from pathlib import Path
 from stat import S_ISDIR
@@ -569,6 +571,17 @@ async def _request_username_whitelist(
     )
 
 
+last_msgs = {
+    "last_msg": 0,
+    "2nd_last_msg": 0,
+    "3rd_last_msg": 0,
+    "on_lockdown_until": None,
+    "chats": {},
+}
+SPAM_THRESHOLD_S = 5
+LOCKDOWN_DURATION_S = 59
+
+
 async def request_censored_message(
     ds: WhitelistDatasets,
     state: FileDrivenState,
@@ -578,6 +591,7 @@ async def request_censored_message(
     whitelist_temp_data: TempDataset,
     background_tasks: BackgroundTasks,
 ) -> RequestCensoredMessageReturn:
+    global last_msgs
     """
     Master censor function. Handles all automatic background logic related to the whitelist censor system.
     """
@@ -644,6 +658,42 @@ async def request_censored_message(
         )
         background_tasks.add_task(
             ws_manager.whitelist_request, censored_words, message, original_name
+        )
+
+    # Check cooldown
+
+    # last_msgs = {"last_msg":0,"2nd_last_msg":0,"3rd_last_msg":0,"on_lockdown_until":None, "chats":{}}
+    lastmsg_less_than_cooldown = last_msgs["last_msg"] + SPAM_THRESHOLD_S > time.time()
+    second_lastmsg_less_than_cooldown = (
+        last_msgs["2nd_last_msg"] + SPAM_THRESHOLD_S + 1 > last_msgs["last_msg"]
+    )
+    third_lastmsg_less_than_cooldown = (
+        last_msgs["3rd_last_msg"] + SPAM_THRESHOLD_S + 2 > last_msgs["2nd_last_msg"]
+    )
+    lockdown_activated = True
+    if (
+        lastmsg_less_than_cooldown
+        and second_lastmsg_less_than_cooldown
+        and third_lastmsg_less_than_cooldown
+    ):
+        last_msgs["on_lockdown_until"] = time.time() + LOCKDOWN_DURATION_S
+
+    if time.time() <= last_msgs["on_lockdown_until"]:
+        ingame_message = (
+            "[Spam detected! Activating message lock for 60 seconds]"
+            if lockdown_activated
+            else ""
+        )
+        twitch_message = (
+            "[Spam detected! Activating message lock for 60 seconds]"
+            if lockdown_activated
+            else f"[Spam detected, message lock still active for {ceil(last_msgs["on_lockdown_until"] - time.time())+1} seconds]"
+        )
+        return RequestCensoredMessageReturn(
+            username="",
+            message=ingame_message,
+            bot_reply_message=twitch_message,
+            send_users_message=False,
         )
 
     return RequestCensoredMessageReturn(
