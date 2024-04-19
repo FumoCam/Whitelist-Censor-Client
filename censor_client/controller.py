@@ -490,6 +490,34 @@ async def _request_username(
         json.dump(state["username_whitelist_request_data"], f)
 
 
+async def _chatlock_alert(original_name: str, message: str):
+    # TODO: Pulled directly from prototype. To be replaced with remote-server discord bot.
+    webhook_url = getenv(
+        "DISCORD_WEBHOOK_BLACKLIST_ALERT_CHANNEL", ""
+    )  # Must exist, verified by `check_dotenv`.
+
+    user_url = f"https://twitch.tv/popout/{getenv('TWITCH_CHAT_CHANNEL')}/viewercard/{original_name.lower()}"
+
+    mention_id = getenv("DISCORD_BLACKLIST_ALERT_USER_ID")
+    mention = f"<@{mention_id}>\n" if mention_id else ""
+
+    alert_message = (
+        f"[CHATLOCK ALERT]\nUser: `{original_name}`\nMessage: `{message}`\n"
+        f"<{user_url}>"
+    )
+
+    webhook_data = {
+        "content": (
+            f"{mention}{alert_message}\n"
+            f"<https://twitch.tv/{getenv('TWITCH_CHAT_CHANNEL')}>"
+        ),
+        "username": "Blacklist Alert",
+    }
+
+    async with aiohttp.ClientSession() as session:
+        await session.post(webhook_url, data=webhook_data, raise_for_status=True)
+        print(f"[Blacklist Alert Sent]\n{alert_message}")
+
 async def _blacklist_alert(
     original_name: str, message: str, blacklisted_words: List[str]
 ):
@@ -575,8 +603,7 @@ last_msgs = {
     "last_msg": 0,
     "2nd_last_msg": 0,
     "3rd_last_msg": 0,
-    "on_lockdown_until": None,
-    "chats": {},
+    "on_lockdown_until": 0,
 }
 SPAM_THRESHOLD_S = 5
 LOCKDOWN_DURATION_S = 59
@@ -596,6 +623,53 @@ async def request_censored_message(
     Master censor function. Handles all automatic background logic related to the whitelist censor system.
     """
 
+    # Check cooldown
+    lastmsg_less_than_cooldown = last_msgs["last_msg"] + SPAM_THRESHOLD_S > time.time()
+    second_lastmsg_less_than_cooldown = (
+        last_msgs["2nd_last_msg"] + SPAM_THRESHOLD_S + 1 > last_msgs["last_msg"]
+    )
+    third_lastmsg_less_than_cooldown = (
+        last_msgs["3rd_last_msg"] + SPAM_THRESHOLD_S + 2 > last_msgs["2nd_last_msg"]
+    )
+    lockdown_activated_this_loop = False
+    in_lockdown = time.time() <= last_msgs["on_lockdown_until"]
+    if (
+        lastmsg_less_than_cooldown
+        and second_lastmsg_less_than_cooldown
+        and third_lastmsg_less_than_cooldown
+        and not in_lockdown
+    ):
+        last_msgs["on_lockdown_until"] = time.time() + LOCKDOWN_DURATION_S
+        in_lockdown = True
+        lockdown_activated_this_loop = True
+
+        background_tasks.add_task(
+            _chatlock_alert, username, message
+        )
+
+    if in_lockdown:
+        ingame_message = (
+            "[Spam detected! Activating message lock for 60 seconds]"
+            if lockdown_activated_this_loop
+            else ""
+        )
+        twitch_message = (
+            "[Spam detected! Activating message lock for 60 seconds]"
+            if lockdown_activated_this_loop
+            else f"[Spam detected, message lock still active for {ceil(last_msgs['on_lockdown_until'] - time.time())+1} seconds]"
+        )
+        return RequestCensoredMessageReturn(
+            username="",
+            message=ingame_message,
+            bot_reply_message=[twitch_message],
+            send_users_message=False,
+        )
+    else:
+        last_msgs["3rd_last_msg"]=float(last_msgs["2nd_last_msg"]) # Avoid ref, recast as float to copy
+        last_msgs["2nd_last_msg"]=float(last_msgs["last_msg"]) # Avoid ref, recast as float to copy
+        last_msgs["last_msg"]=time.time()
+
+
     for key in whitelist_temp_data:
         # TODO: Do this once, not every time
         val = whitelist_temp_data[key]  # type: ignore[literal-required]
@@ -608,6 +682,7 @@ async def request_censored_message(
             username=nickname or username, message=message
         )
 
+    # Actual censor work, todo put above into new function
     original_name = username
     censored_name = nickname or original_name
     reply_message: List[str] = []
@@ -658,42 +733,6 @@ async def request_censored_message(
         )
         background_tasks.add_task(
             ws_manager.whitelist_request, censored_words, message, original_name
-        )
-
-    # Check cooldown
-
-    # last_msgs = {"last_msg":0,"2nd_last_msg":0,"3rd_last_msg":0,"on_lockdown_until":None, "chats":{}}
-    lastmsg_less_than_cooldown = last_msgs["last_msg"] + SPAM_THRESHOLD_S > time.time()
-    second_lastmsg_less_than_cooldown = (
-        last_msgs["2nd_last_msg"] + SPAM_THRESHOLD_S + 1 > last_msgs["last_msg"]
-    )
-    third_lastmsg_less_than_cooldown = (
-        last_msgs["3rd_last_msg"] + SPAM_THRESHOLD_S + 2 > last_msgs["2nd_last_msg"]
-    )
-    lockdown_activated = True
-    if (
-        lastmsg_less_than_cooldown
-        and second_lastmsg_less_than_cooldown
-        and third_lastmsg_less_than_cooldown
-    ):
-        last_msgs["on_lockdown_until"] = time.time() + LOCKDOWN_DURATION_S
-
-    if time.time() <= last_msgs["on_lockdown_until"]:
-        ingame_message = (
-            "[Spam detected! Activating message lock for 60 seconds]"
-            if lockdown_activated
-            else ""
-        )
-        twitch_message = (
-            "[Spam detected! Activating message lock for 60 seconds]"
-            if lockdown_activated
-            else f"[Spam detected, message lock still active for {ceil(last_msgs["on_lockdown_until"] - time.time())+1} seconds]"
-        )
-        return RequestCensoredMessageReturn(
-            username="",
-            message=ingame_message,
-            bot_reply_message=twitch_message,
-            send_users_message=False,
         )
 
     return RequestCensoredMessageReturn(
