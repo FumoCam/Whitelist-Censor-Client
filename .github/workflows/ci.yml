@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       use_cache:
-        description: "Use cached dependencies (true/false)"
+        description: "Use cached dependencies? (true to use cache, false to bypass)"
         required: true
-        default: "true" # Default to using the cache unless specified
+        default: "true" # Default to using the cache unless specified as false
 
 jobs:
   ci:
@@ -35,11 +35,12 @@ jobs:
           virtualenvs-in-project: true
 
       - name: Load Cached Venv
+        if: ${{ github.event.inputs.use_cache == 'true' }}
         id: cached-poetry-dependencies
         uses: actions/cache@v2
         with:
           path: .venv
-          key: ${{ github.event.inputs.use_cache }}-venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
 
       - name: Install dependencies via Poetry
         run: poetry install
