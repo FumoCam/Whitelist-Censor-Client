@@ -518,6 +518,7 @@ async def _chatlock_alert(original_name: str, message: str):
         await session.post(webhook_url, data=webhook_data, raise_for_status=True)
         print(f"[Blacklist Alert Sent]\n{alert_message}")
 
+
 async def _blacklist_alert(
     original_name: str, message: str, blacklisted_words: List[str]
 ):
@@ -600,13 +601,13 @@ async def _request_username_whitelist(
 
 
 last_msgs = {
-    "last_msg": 0,
-    "2nd_last_msg": 0,
-    "3rd_last_msg": 0,
-    "on_lockdown_until": 0,
+    "last_msg": 0.0,
+    "2nd_last_msg": 0.0,
+    "3rd_last_msg": 0.0,
+    "on_lockdown_until": 0.0,
 }
-SPAM_THRESHOLD_S = 5
-LOCKDOWN_DURATION_S = 59
+SPAM_THRESHOLD_S = 5.0
+LOCKDOWN_DURATION_S = 59.0
 
 
 async def request_censored_message(
@@ -643,9 +644,7 @@ async def request_censored_message(
         in_lockdown = True
         lockdown_activated_this_loop = True
 
-        background_tasks.add_task(
-            _chatlock_alert, username, message
-        )
+        background_tasks.add_task(_chatlock_alert, username, message)
 
     if in_lockdown:
         ingame_message = (
@@ -656,7 +655,10 @@ async def request_censored_message(
         twitch_message = (
             "[Spam detected! Activating message lock for 60 seconds]"
             if lockdown_activated_this_loop
-            else f"[Spam detected, message lock still active for {ceil(last_msgs['on_lockdown_until'] - time.time())+1} seconds]"
+            else (
+                "[Spam detected, message lock still active for "
+                f"{ceil(last_msgs['on_lockdown_until'] - time.time())+1} seconds]"
+            )
         )
         return RequestCensoredMessageReturn(
             username="",
@@ -665,10 +667,13 @@ async def request_censored_message(
             send_users_message=False,
         )
     else:
-        last_msgs["3rd_last_msg"]=float(last_msgs["2nd_last_msg"]) # Avoid ref, recast as float to copy
-        last_msgs["2nd_last_msg"]=float(last_msgs["last_msg"]) # Avoid ref, recast as float to copy
-        last_msgs["last_msg"]=time.time()
-
+        last_msgs["3rd_last_msg"] = float(
+            last_msgs["2nd_last_msg"]
+        )  # Avoid ref, recast as float to copy
+        last_msgs["2nd_last_msg"] = float(
+            last_msgs["last_msg"]
+        )  # Avoid ref, recast as float to copy
+        last_msgs["last_msg"] = time.time()
 
     for key in whitelist_temp_data:
         # TODO: Do this once, not every time
