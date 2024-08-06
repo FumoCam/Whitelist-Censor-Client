@@ -54,4 +54,5 @@ jobs:
         run: poetry run bandit -r -ll -f screen censor_client
 
       - name: Dependency Security Audit (ossaudit)
-        run: poetry run python .github\\run_audit.py
+        # Not `poetry run python`, we installed via pip above
+        run: python poetry_scripts\\run_audit.py
