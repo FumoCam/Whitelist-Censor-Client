@@ -4,8 +4,7 @@ from twitchio.ext import commands
 
 
 class TwitchBot(commands.Bot):
-    def __init__(self):
-        ...
+    def __init__(self): ...
 
     def manual_init(self):
         super().__init__(
