@@ -6,6 +6,11 @@ on:
       - main
   pull_request:
   workflow_dispatch:
+    inputs:
+      use_cache:
+        description: "Use cached dependencies (true/false)"
+        required: true
+        default: "true" # Default to using the cache unless specified
 
 jobs:
   ci:
@@ -34,7 +39,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .venv
-          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
+          key: ${{ github.event.inputs.use_cache }}-venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}
 
       - name: Install dependencies via Poetry
         run: poetry install
