@@ -176,7 +176,7 @@ class BackgroundWebsocketProcess:
                 async for raw_message in self.websocket:
                     try:
                         message: Dict = json.loads(str(raw_message))
-                        assert type(message) == dict
+                        assert type(message) is dict
                     except Exception:
                         print("[WS] Failure in decoding incoming message to JSON")
                         continue
