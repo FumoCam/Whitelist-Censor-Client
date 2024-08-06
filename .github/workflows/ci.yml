@@ -55,4 +55,4 @@ jobs:
 
       - name: Dependency Security Audit (ossaudit)
         # Not `poetry run python`, we installed via pip above
-        run: python poetry_scripts\\run_audit.py
+        run: python .github\\run_audit.py
